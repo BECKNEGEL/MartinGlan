@@ -1,0 +1,341 @@
+
+                <!DOCTYPE html>
+                <html lang="zh">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <meta name="color-scheme" content="light">
+                  <meta name="supported-color-schemes" content="light">
+                  <title>结算中心</title>
+                  <style>
+                    *,
+                    *::before,
+                    *::after {
+                      box-sizing: border-box;
+                      margin: 0;
+                    }
+                    .iframe-outer {
+                      position: fixed;
+                      top: 0;
+                      left: 0;
+                      bottom: 0;
+                      right: 0;
+                      display: flex;
+                      justify-content: center;
+                      background-color: #E0E0E0;
+                    }
+                    .iframe-wrapper {
+                      width: 100%;
+                      height: 100%;
+                      margin: 0 auto;
+                      transform-origin: center top;
+                      flex-shrink: 0;
+                    }
+                    #dynamicIframe {
+                      border: none;
+                      width: 100%;
+                      height: 100%;
+                    }
+                  </style>
+                  <script>
+                const width = 1920
+                const height = 1080
+                const resolutionRatio = width && height ? width / height : 1
+                const pageNameMap = {
+                  'home': '首页',
+    'collection_list': '系列分类页',
+    'product_detail': '商品详情页',
+    'material_craft_story': '材质与工艺专题页',
+    'search_results': '视觉搜索结果页',
+    'care_guide': '材质护理指南',
+    'shopping_bag': '购物袋',
+    'checkout_center': '结算中心',
+    'order_status': '订单确认与成功',
+    'account_dashboard': '个人中心',
+    'page_2516404': '管理员页面'
+                }
+                const allPageIds = ["home","collection_list","product_detail","material_craft_story","search_results","care_guide","shopping_bag","checkout_center","order_status","account_dashboard","page_2516404"]
+                const allFormatPageIdsMap = {"home":"home","collection_list":"collection-list","product_detail":"product-detail","material_craft_story":"material-craft-story","search_results":"search-results","care_guide":"care-guide","shopping_bag":"shopping-bag","checkout_center":"checkout-center","order_status":"order-status","account_dashboard":"account-dashboard","page_2516404":"page-2516404"}
+                const IFRAME_MESSAGE_TYPE = {
+                  iframeNavigation: 'iframeNavigation',
+                }
+                const safeAddEventListener = function Tc(e,t,r,n=!1){e.removeEventListener(t,r,n),e.addEventListener(t,r,n)}
+                const processOnclick = (e,t,r)=>{if(r){const n=Rw(t);if(n.methodName&&Lp(n.methodName,r))return;e.preventDefault(),e.stopPropagation();const s=n.args||[],i=(s==null?void 0:s.find(u=>u))||"";i&&Mp(i)}}
+                const checkIframeMethod = (e,t)=>{try{return typeof t[e]=="function"||typeof t[e]=="function"}catch(r){return!1}}
+                const postIframeMessage = (targetPageId) => {
+                  window.parent.postMessage({
+                    type: IFRAME_MESSAGE_TYPE.iframeNavigation,
+                    targetPageId,
+                  })
+                }
+                const handleIframeLinkClick = (event) => {
+                  const dynamicIframe = document.querySelector('#dynamicIframe')
+                  if (!dynamicIframe?.contentWindow) {
+                    return
+                  }
+                  const link = event.target.closest('a')
+                  const target = event.target
+                  if (link) {
+                    const href = link.getAttribute('href')
+                    const onclick = link.getAttribute('onclick')
+                    if (href && href !== '#' && !href.startsWith('javascript:')) {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      const targetPageId = getKeyByValueObj(allFormatPageIdsMap, href)
+                      if (targetPageId) {
+                        postIframeMessage(targetPageId)
+                      }
+                      return
+                    }
+                    if (onclick) {
+                      processOnclick(event, onclick, iframe.contentWindow, allFormatPageIdsMap)
+                    } else {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }
+                    return
+                  }
+                  const onclick = target.getAttribute('onclick')
+                  if (onclick) {
+                    processOnclick(event, onclick, iframe.contentWindow, allFormatPageIdsMap)
+                  }
+                }
+                function stringExt(link) {
+                  let s = String(link || '')
+                  s = (s.split('#')[0] || '')
+                  s = (s.split('?')[0] || '')
+                  s = s.trim()
+                  s = s.split('/').filter(Boolean).pop() || ''
+                  const lower = s.toLowerCase()
+                  if (lower.endsWith('.html') || lower.endsWith('.php') || lower.endsWith('.aspx')) {
+                    s = s.slice(0, s.lastIndexOf('.'))
+                  }
+                  return s
+                }
+                function formatHref(href) {
+                  if (!href) {
+                    return ''
+                  }
+                  try {
+                    const url = new URL(href, window.location.href)
+                    const pathname = url.pathname || ''
+                    return stringExt(pathname)
+                  } catch {
+                    return stringExt(href)
+                  }
+                }
+                function getKeyByValueObj(obj, value) {
+                  const newValue = formatHref(value)
+                  const keyFind = Object.keys(obj).find(k => k === newValue)
+                  if (keyFind) {
+                    return keyFind
+                  }
+                  return Object.keys(obj).find(k => obj[k] === newValue)
+                }
+                function setIframeSize(w, h) {
+                  const currentContainerRadio = w / h
+                  let widthValue = w
+                  let heightValue = h
+                  let zoom = 1
+                  if (currentContainerRadio > resolutionRatio) {
+                    widthValue = h * resolutionRatio
+                    heightValue = h
+                  } else {
+                    widthValue = w
+                    heightValue = w / resolutionRatio
+                  }
+                  zoom = width ? widthValue / width : 1
+                  return {
+                    width: widthValue / zoom + 'px',
+                    height: heightValue / zoom + 'px',
+                    zoom,
+                  }
+                }
+                function adjustIframeSize() {
+                  const iframeWrapper = document.querySelector(".iframe-wrapper")
+                  const { width, height, zoom } = setIframeSize(window.innerWidth, window.innerHeight)
+                  iframeWrapper.style.height = height
+                  iframeWrapper.style.width = width
+                  iframeWrapper.style.transform = 'scale(' + zoom + ')'
+                }
+                function sanitizeFilename(name) {
+                  return name.replace(/[\/:*?"<>|]/g, '_')
+                }
+                function handlePostMessage(event) {
+                  if (!event.data) {
+                    return
+                  }
+                  const { type, targetPageId } = event.data
+                  const targetPageName = pageNameMap[targetPageId]
+                  if (type === "iframeNavigation" && targetPageId && targetPageName) {
+                    window.location.href = targetPageName + '.html'
+                  }
+                }
+                function setupIframeEvents() {
+                  const iframe = document.getElementById('dynamicIframe')
+                  if (iframe && iframe.contentWindow && iframe.contentWindow.document) {
+                    safeAddEventListener(iframe.contentWindow.document, 'click', handleIframeLinkClick, true)
+                  } else {
+                    setTimeout(setupIframeEvents, 100)
+                  }
+                }
+                window.addEventListener('message', handlePostMessage)
+                window.onload = function() {
+                  adjustIframeSize()
+                  setupIframeEvents()
+                }
+                window.onresize = adjustIframeSize
+                window.onunload = () => {
+                  window.removeEventListener('message', handlePostMessage)
+                }
+              </script>
+                </head>
+                <body>
+                  <div class="iframe-outer">
+                    <div class="iframe-wrapper">
+                      <iframe id="dynamicIframe" srcdoc='<html data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="11" data-source-line-end="21" lang="en"><head data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="12" data-source-line-end="17"><script>(function(){
+      function stringExt(link) {
+        let s = String(link || &#39;&#39;)
+        s = (s.split(&#39;#&#39;)[0] || &#39;&#39;)
+        s = (s.split(&#39;?&#39;)[0] || &#39;&#39;)
+        s = s.trim()
+        s = s.split(&#39;/&#39;).filter(Boolean).pop() || &#39;&#39;
+        const lower = s.toLowerCase()
+        if (lower.endsWith(&#39;.html&#39;) || lower.endsWith(&#39;.php&#39;) || lower.endsWith(&#39;.aspx&#39;)) {
+          s = s.slice(0, s.lastIndexOf(&#39;.&#39;))
+        }
+        return s
+      }
+      function formatHref(href) {
+        if (!href) {
+          return &#39;&#39;
+        }
+        try {
+          const url = new URL(href, window.location.href)
+          const pathname = url.pathname || &#39;&#39;
+          return stringExt(pathname)
+        } catch {
+          return stringExt(href)
+        }
+      }
+      function getKeyByValueObj(obj, value) {
+        const newValue = formatHref(value)
+        const keyFind = Object.keys(obj).find(k => k === newValue)
+        if (keyFind) {
+          return keyFind
+        }
+        return Object.keys(obj).find(k => obj[k] === newValue)
+      }
+      function emit(to, source){
+        try {
+          if (window.parent) {
+            const allFormatPageIdsMap = {"home":"home","collection_list":"collection-list","product_detail":"product-detail","material_craft_story":"material-craft-story","search_results":"search-results","care_guide":"care-guide","shopping_bag":"shopping-bag","checkout_center":"checkout-center","order_status":"order-status","account_dashboard":"account-dashboard","page_2516404":"page-2516404"}
+            const IFRAME_MESSAGE_TYPE = {
+              iframeNavigation: &#39;iframeNavigation&#39;,
+            }
+            const targetPageId = getKeyByValueObj(allFormatPageIdsMap, String(to || &#39;&#39;))
+            if (targetPageId) {
+              window.parent.postMessage({
+                type: IFRAME_MESSAGE_TYPE.iframeNavigation,
+                targetPageId,
+              }, &#39;*&#39;)
+            }
+          }
+        } catch(e) {}
+      }
+      try{
+        if (&#39;navigation&#39; in window &amp;&amp; window.navigation &amp;&amp; typeof window.navigation.addEventListener===&#39;function&#39;){
+          window.navigation.addEventListener(&#39;navigate&#39;, function(e){
+            try{
+              var url = (e.destination &amp;&amp; e.destination.url) || &#39;&#39;;
+              if (e.canIntercept &amp;&amp; typeof e.intercept===&#39;function&#39;){ e.intercept({ handler:function(){} }) }
+              else if (e.preventDefault){ e.preventDefault() }
+              emit(url)
+            }catch(_){}
+          })
+        }
+      }catch(_){}
+    })();</script><meta name="supported-color-schemes" content="light"><meta name="color-scheme" content="light"><style>
+      :root, html, body { color-scheme: light; }
+      html { forced-color-adjust: none; }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Built with Astro">
+    <title data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="16" data-source-line-end="16">结算中心 - 马丁格兰</title>
+  <link rel="stylesheet" href="./assets/html/100156/account-dashboard.DC4RfHBD.css"><script src="./assets/static/uxbot/25_6/holder.js"></script><style>
+#i7ecg,
+#ibvujr,
+#izd3ib {
+  outline: none;
+}
+
+</style></head>
+  <body data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="18" data-source-line-end="20">
+    
+<style>astro-island,astro-slot,astro-static-slot{display:contents}</style><script>(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).load=e;window.dispatchEvent(new Event("astro:load"));})();</script><script>(()=>{var A=Object.defineProperty;var g=(i,o,a)=>o in i?A(i,o,{enumerable:!0,configurable:!0,writable:!0,value:a}):i[o]=a;var d=(i,o,a)=>g(i,typeof o!="symbol"?o+"":o,a);{let i={0:t=>m(t),1:t=>a(t),2:t=>new RegExp(t),3:t=>new Date(t),4:t=>new Map(a(t)),5:t=>new Set(a(t)),6:t=>BigInt(t),7:t=>new URL(t),8:t=>new Uint8Array(t),9:t=>new Uint16Array(t),10:t=>new Uint32Array(t),11:t=>1/0*t},o=t=>{let[l,e]=t;return l in i?i[l](e):void 0},a=t=>t.map(o),m=t=>typeof t!="object"||t===null?t:Object.fromEntries(Object.entries(t).map(([l,e])=>[l,o(e)]));class y extends HTMLElement{constructor(){super(...arguments);d(this,"Component");d(this,"hydrator");d(this,"hydrate",async()=>{var b;if(!this.hydrator||!this.isConnected)return;let e=(b=this.parentElement)==null?void 0:b.closest("astro-island[ssr]");if(e){e.addEventListener("astro:hydrate",this.hydrate,{once:!0});return}let c=this.querySelectorAll("astro-slot"),n={},h=this.querySelectorAll("template[data-astro-template]");for(let r of h){let s=r.closest(this.tagName);s!=null&amp;&amp;s.isSameNode(this)&amp;&amp;(n[r.getAttribute("data-astro-template")||"default"]=r.innerHTML,r.remove())}for(let r of c){let s=r.closest(this.tagName);s!=null&amp;&amp;s.isSameNode(this)&amp;&amp;(n[r.getAttribute("name")||"default"]=r.innerHTML)}let p;try{p=this.hasAttribute("props")?m(JSON.parse(this.getAttribute("props"))):{}}catch(r){let s=this.getAttribute("component-url")||"<unknown>",v=this.getAttribute("component-export");throw v&amp;&amp;(s+=` (export ${v})`),console.error(`[hydrate] Error parsing props for component ${s}`,this.getAttribute("props"),r),r}let u;await this.hydrator(this)(this.Component,p,n,{client:this.getAttribute("client")}),this.removeAttribute("ssr"),this.dispatchEvent(new CustomEvent("astro:hydrate"))});d(this,"unmount",()=>{this.isConnected||this.dispatchEvent(new CustomEvent("astro:unmount"))})}disconnectedCallback(){document.removeEventListener("astro:after-swap",this.unmount),document.addEventListener("astro:after-swap",this.unmount,{once:!0})}connectedCallback(){if(!this.hasAttribute("await-children")||document.readyState==="interactive"||document.readyState==="complete")this.childrenConnectedCallback();else{let e=()=>{document.removeEventListener("DOMContentLoaded",e),c.disconnect(),this.childrenConnectedCallback()},c=new MutationObserver(()=>{var n;((n=this.lastChild)==null?void 0:n.nodeType)===Node.COMMENT_NODE&amp;&amp;this.lastChild.nodeValue==="astro:end"&amp;&amp;(this.lastChild.remove(),e())});c.observe(this,{childList:!0}),document.addEventListener("DOMContentLoaded",e)}}async childrenConnectedCallback(){let e=this.getAttribute("before-hydration-url");e&amp;&amp;await import(e),this.start()}async start(){let e=JSON.parse(this.getAttribute("opts")),c=this.getAttribute("client");if(Astro[c]===void 0){window.addEventListener(`astro:${c}`,()=>this.start(),{once:!0});return}try{await Astro[c](async()=>{let n=this.getAttribute("renderer-url"),[h,{default:p}]=await Promise.all([import(this.getAttribute("component-url")),n?import(n):()=>()=>{}]),u=this.getAttribute("component-export")||"default";if(!u.includes("."))this.Component=h[u];else{this.Component=h;for(let f of u.split("."))this.Component=this.Component[f]}return this.hydrator=p,this.hydrate},e,this)}catch(n){console.error(`[astro-island] Error hydrating ${this.getAttribute("component-url")}`,n)}}attributeChangedCallback(){this.hydrate()}}d(y,"observedAttributes",["props"]),customElements.get("astro-island")||customElements.define("astro-island",y)}})();</script><astro-island uid="2k2GCS" prefix="s0" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CommonHeader.0QFRs7u9.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{&amp;quot;showAnnouncement&amp;quot;:[0,false]}" ssr="" client="load" opts="{&amp;quot;name&amp;quot;:&amp;quot;CommonHeader&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><header class="sticky top-0 z-50 w-full" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="36" data-source-line-end="171"><!----><div class="border-b border-border transition-subtle bg-background" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="39" data-source-line-end="170"><div class="container-custom py-4" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="45" data-source-line-end="169"><div class="relative flex items-center justify-between gap-4" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="46" data-source-line-end="168"><nav class="hidden md:flex items-center gap-6 flex-1" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="48" data-source-line-end="57"><!--[--><a href="./collection-list.html" class="text-sm text-foreground hover:opacity-70 transition-opacity tracking-wide" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="49" data-source-line-end="56">围巾系列</a><a href="./material-craft-story.html" class="text-sm text-foreground hover:opacity-70 transition-opacity tracking-wide" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="49" data-source-line-end="56">材质工艺</a><!--]--></nav><a href="./home.html" class="absolute left-1/2 -translate-x-1/2 flex items-stretch justify-center w-[200px] z-10" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="60" data-source-line-end="67"><h1 class="text-2xl font-light tracking-loose text-foreground" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="64" data-source-line-end="66"> MartilanGlan </h1></a><div class="hidden md:flex items-center gap-4 flex-1 justify-end" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="70" data-source-line-end="106"><div class="relative max-w-xs" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="71" data-source-line-end="87"><input class="flex h-10 w-full rounded-md border px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-foreground file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10 bg-background border-border text-sm tracking-wide" type="search" placeholder="搜索产品" data-source-file="src/components/ui/input/Input.vue" data-source-line-start="23" data-source-line-end="23" value=""><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground w-10 absolute right-0 top-0 h-full" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-search-icon lucide-search"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg><!--]--></button></div><a class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10" href="./account-dashboard.html" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-user-icon lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><!--]--></a><a class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10" href="./shopping-bag.html" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-shopping-bag-icon lucide-shopping-bag"><path d="M16 10a4 4 0 0 1-8 0"></path><path d="M3.103 6.034h17.794"></path><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"></path></svg><!--]--></a></div><!--[--><!--[--><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10 md:hidden" type="button" aria-haspopup="dialog" aria-expanded="false" data-state="closed" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-menu-icon lucide-menu"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path></svg><!--]--></button><!--v-if--><!--]--><!--]--></div></div></div></header><!--astro:end--></astro-island>
+  
+  <main data-source-file="src/pages/checkout-center.astro" data-source-line-start="13" data-source-line-end="36" class="min-h-[calc(100vh-64px)] flex flex-col">
+    <div data-source-file="src/pages/checkout-center.astro" data-source-line-start="14" data-source-line-end="35" class="flex-1 container-custom section-spacing">
+      <div data-source-file="src/pages/checkout-center.astro" data-source-line-start="15" data-source-line-end="22" class="mb-12">
+        <h1 data-source-file="src/pages/checkout-center.astro" data-source-line-start="16" data-source-line-end="18" class="text-3xl font-light tracking-loose text-foreground">
+          订单确认
+        </h1>
+        <p data-source-file="src/pages/checkout-center.astro" data-source-line-start="19" data-source-line-end="21" class="text-sm text-muted-foreground tracking-wide mt-2">
+          请确认您的配送信息和支付方式
+        </p>
+      </div>
+
+      <div data-source-file="src/pages/checkout-center.astro" data-source-line-start="24" data-source-line-end="34" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Checkout Form (Left - 2 columns) -->
+        <div data-source-file="src/pages/checkout-center.astro" data-source-line-start="26" data-source-line-end="28" class="lg:col-span-2">
+          <astro-island uid="1Bop0w" prefix="s1" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CheckoutForm.BohuCS1l.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="load" opts="{&amp;quot;name&amp;quot;:&amp;quot;CheckoutForm&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><div class="space-y-8" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="106" data-source-line-end="258"><div class="rounded-lg border bg-card text-card-foreground shadow-sm card-minimal border-border" data-source-file="src/components/ui/card/Card.vue" data-source-line-start="11" data-source-line-end="20"><!--[--><div class="flex flex-col gap-y-1.5 p-6" data-source-file="src/components/ui/card/CardHeader.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><h3 class="text-lg font-light tracking-wide" data-source-file="src/components/ui/card/CardTitle.vue" data-source-line-start="11" data-source-line-end="17"><!--[--> 配送地址 <!--]--></h3><!--]--></div><div class="p-6 pt-0 space-y-4" data-source-file="src/components/ui/card/CardContent.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><div class="grid gap-2 space-y-3" data-source-file="src/components/ui/radio-group/RadioGroup.vue" data-source-line-start="17" data-source-line-end="22" tabindex="-1" dir="ltr" style="outline:none;" role="radiogroup" aria-required="false"><!--[--><!--[--><!--[--><div class="flex items-start space-x-3 p-4 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition-subtle bg-muted/30" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="116" data-source-line-end="135"><button data-reka-collection-item="" tabindex="-1" data-active="" class="peer aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="22" data-source-line-end="36" id="addr-addr_001" role="radio" type="button" aria-checked="true" data-state="checked" value="addr_001"><!--[--><!--[--><span data-state="checked" class="flex items-center justify-center" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="31" data-source-line-end="35"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide h-2.5 w-2.5 fill-current text-current lucide-circle-icon lucide-circle h-2.5 w-2.5 fill-current text-current" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="34" data-source-line-end="34"><circle cx="12" cy="12" r="10"></circle></svg><!--]--></span><!--]--><!--]--><!--v-if--></button><label for="addr-addr_001" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer" data-source-file="src/components/ui/label/Label.vue" data-source-line-start="14" data-source-line-end="24"><!--[--><!--[--><div class="flex items-center gap-2 mb-1" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="124" data-source-line-end="130"><span class="font-medium text-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="125" data-source-line-end="125">张三</span><span class="text-xs text-muted-foreground" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="126" data-source-line-end="126">13800138000</span><span class="text-xs px-2 py-1 bg-accent text-accent-foreground rounded-sm" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="127" data-source-line-end="129"> 默认地址 </span></div><p class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="131" data-source-line-end="133">北京市 朝阳区 朝阳区 建国路88号 SOHO 现代城 A座 1501</p><!--]--><!--]--></label></div><div class="flex items-start space-x-3 p-4 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition-subtle" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="116" data-source-line-end="135"><button data-reka-collection-item="" tabindex="-1" class="peer aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="22" data-source-line-end="36" id="addr-addr_002" role="radio" type="button" aria-checked="false" data-state="unchecked" value="addr_002"><!--[--><!--[--><!----><!--]--><!--]--><!--v-if--></button><label for="addr-addr_002" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer" data-source-file="src/components/ui/label/Label.vue" data-source-line-start="14" data-source-line-end="24"><!--[--><!--[--><div class="flex items-center gap-2 mb-1" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="124" data-source-line-end="130"><span class="font-medium text-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="125" data-source-line-end="125">李四</span><span class="text-xs text-muted-foreground" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="126" data-source-line-end="126">13900139000</span><!----></div><p class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="131" data-source-line-end="133">上海市 浦东新区 浦东新区 世纪大道100号 环球金融中心 88层</p><!--]--><!--]--></label></div><!--]--><!--]--><!--]--><!--v-if--></div><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 border border-input bg-transparent hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full" disabled="" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide mr-2 lucide-plus-icon lucide-plus mr-2" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg> 添加新地址 <!--]--></button><!--]--></div><!--]--></div><div data-orientation="horizontal" role="none" class="shrink-0 h-px w-full bg-border" data-source-file="src/components/ui/separator/Separator.vue" data-source-line-start="19" data-source-line-end="28"><!--[--><!--]--></div><div class="rounded-lg border bg-card text-card-foreground shadow-sm card-minimal border-border" data-source-file="src/components/ui/card/Card.vue" data-source-line-start="11" data-source-line-end="20"><!--[--><div class="flex flex-col gap-y-1.5 p-6" data-source-file="src/components/ui/card/CardHeader.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><h3 class="text-lg font-light tracking-wide" data-source-file="src/components/ui/card/CardTitle.vue" data-source-line-start="11" data-source-line-end="17"><!--[--> 配送方式 <!--]--></h3><!--]--></div><div class="p-6 pt-0 space-y-3" data-source-file="src/components/ui/card/CardContent.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><div class="grid gap-2 space-y-3" data-source-file="src/components/ui/radio-group/RadioGroup.vue" data-source-line-start="17" data-source-line-end="22" tabindex="-1" dir="ltr" style="outline:none;" role="radiogroup" aria-required="false"><!--[--><!--[--><!--[--><div class="flex items-start space-x-3 p-4 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition-subtle bg-muted/30" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="156" data-source-line-end="175"><button data-reka-collection-item="" tabindex="-1" data-active="" class="peer aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="22" data-source-line-end="36" id="ship-shunfeng" role="radio" type="button" aria-checked="true" data-state="checked" value="shunfeng"><!--[--><!--[--><span data-state="checked" class="flex items-center justify-center" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="31" data-source-line-end="35"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide h-2.5 w-2.5 fill-current text-current lucide-circle-icon lucide-circle h-2.5 w-2.5 fill-current text-current" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="34" data-source-line-end="34"><circle cx="12" cy="12" r="10"></circle></svg><!--]--></span><!--]--><!--]--><!--v-if--></button><label for="ship-shunfeng" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer" data-source-file="src/components/ui/label/Label.vue" data-source-line-start="14" data-source-line-end="24"><!--[--><!--[--><div class="flex items-center justify-between mb-1" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="164" data-source-line-end="170"><span class="font-medium text-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="165" data-source-line-end="165">顺丰快递</span><span class="text-sm text-muted-foreground" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="166" data-source-line-end="169"><span class="text-accent-foreground font-medium" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="167" data-source-line-end="167">免运费</span></span></div><p class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="171" data-source-line-end="173">全国包邮，1-2 个工作日送达</p><!--]--><!--]--></label></div><div class="flex items-start space-x-3 p-4 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition-subtle" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="156" data-source-line-end="175"><button data-reka-collection-item="" tabindex="-1" class="peer aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="22" data-source-line-end="36" id="ship-zhongtong" role="radio" type="button" aria-checked="false" data-state="unchecked" value="zhongtong"><!--[--><!--[--><!----><!--]--><!--]--><!--v-if--></button><label for="ship-zhongtong" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer" data-source-file="src/components/ui/label/Label.vue" data-source-line-start="14" data-source-line-end="24"><!--[--><!--[--><div class="flex items-center justify-between mb-1" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="164" data-source-line-end="170"><span class="font-medium text-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="165" data-source-line-end="165">中通快递</span><span class="text-sm text-muted-foreground" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="166" data-source-line-end="169"><span class="text-accent-foreground font-medium" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="167" data-source-line-end="167">免运费</span></span></div><p class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="171" data-source-line-end="173">标准配送，3-5 个工作日送达</p><!--]--><!--]--></label></div><!--]--><!--]--><!--]--><!--v-if--></div><!--]--></div><!--]--></div><div data-orientation="horizontal" role="none" class="shrink-0 h-px w-full bg-border" data-source-file="src/components/ui/separator/Separator.vue" data-source-line-start="19" data-source-line-end="28"><!--[--><!--]--></div><div class="rounded-lg border bg-card text-card-foreground shadow-sm card-minimal border-border" data-source-file="src/components/ui/card/Card.vue" data-source-line-start="11" data-source-line-end="20"><!--[--><div class="flex flex-col gap-y-1.5 p-6" data-source-file="src/components/ui/card/CardHeader.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><h3 class="text-lg font-light tracking-wide" data-source-file="src/components/ui/card/CardTitle.vue" data-source-line-start="11" data-source-line-end="17"><!--[--> 支付方式 <!--]--></h3><!--]--></div><div class="p-6 pt-0 space-y-3" data-source-file="src/components/ui/card/CardContent.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><div class="grid gap-2 space-y-3" data-source-file="src/components/ui/radio-group/RadioGroup.vue" data-source-line-start="17" data-source-line-end="22" tabindex="-1" dir="ltr" style="outline:none;" role="radiogroup" aria-required="false"><!--[--><!--[--><div class="flex items-start space-x-3 p-4 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition-subtle bg-muted/30" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="191" data-source-line-end="205"><button data-reka-collection-item="" tabindex="-1" data-active="" class="peer aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="22" data-source-line-end="36" id="payment-wechat" role="radio" type="button" aria-checked="true" data-state="checked" value="wechat"><!--[--><!--[--><span data-state="checked" class="flex items-center justify-center" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="31" data-source-line-end="35"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide h-2.5 w-2.5 fill-current text-current lucide-circle-icon lucide-circle h-2.5 w-2.5 fill-current text-current" data-source-file="src/components/ui/radio-group/RadioGroupItem.vue" data-source-line-start="34" data-source-line-end="34"><circle cx="12" cy="12" r="10"></circle></svg><!--]--></span><!--]--><!--]--><!--v-if--></button><label for="payment-wechat" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer" data-source-file="src/components/ui/label/Label.vue" data-source-line-start="14" data-source-line-end="24"><!--[--><!--[--><div class="flex items-center gap-2 mb-1" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="197" data-source-line-end="200"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide text-muted-foreground lucide-smartphone-icon lucide-smartphone text-muted-foreground" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg><span class="font-medium text-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="199" data-source-line-end="199">微信支付</span></div><p class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="201" data-source-line-end="203"> 使用微信钱包安全支付 </p><!--]--><!--]--></label></div><!--]--><!--]--><!--v-if--></div><div class="p-4 bg-muted/30 border border-border rounded-sm" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="208" data-source-line-end="215"><div class="flex gap-2 text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="209" data-source-line-end="214"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide flex-shrink-0 mt-0.5 lucide-shield-icon lucide-shield flex-shrink-0 mt-0.5" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg><p data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="211" data-source-line-end="213"> 您的支付信息已加密保护。我们采用行业标准的安全措施确保您的交易安全。 </p></div></div><!--]--></div><!--]--></div><div data-orientation="horizontal" role="none" class="shrink-0 h-px w-full bg-border" data-source-file="src/components/ui/separator/Separator.vue" data-source-line-start="19" data-source-line-end="28"><!--[--><!--]--></div><div class="rounded-lg border bg-card text-card-foreground shadow-sm card-minimal border-border" data-source-file="src/components/ui/card/Card.vue" data-source-line-start="11" data-source-line-end="20"><!--[--><div class="flex flex-col gap-y-1.5 p-6" data-source-file="src/components/ui/card/CardHeader.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><h3 class="text-lg font-light tracking-wide" data-source-file="src/components/ui/card/CardTitle.vue" data-source-line-start="11" data-source-line-end="17"><!--[--> 订单备注（可选） <!--]--></h3><!--]--></div><div class="p-6 pt-0" data-source-file="src/components/ui/card/CardContent.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><textarea placeholder="如有特殊需求，请在此说明" class="w-full h-24 p-3 bg-background border border-border rounded-sm text-sm tracking-wide resize-none focus:outline-none focus:ring-1 focus:ring-ring" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="229" data-source-line-end="232"></textarea><!--]--></div><!--]--></div><div class="flex gap-4 pt-4" data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="237" data-source-line-end="257"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 border border-input bg-transparent hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 flex-1" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--> 返回修改 <!--]--></button><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 flex-1" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27"><!--[--><span data-source-file="src/components/checkout-center/CheckoutForm.vue" data-source-line-start="251" data-source-line-end="251">确认支付</span><!--]--></button></div></div><!--astro:end--></astro-island>
+        </div>
+
+        <!-- Order Summary (Right - 1 column) -->
+        <div data-source-file="src/pages/checkout-center.astro" data-source-line-start="31" data-source-line-end="33" class="lg:col-span-1">
+          <astro-island uid="Z23uhzC" prefix="s2" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/OrderSummary.CUG4uduI.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="load" opts="{&amp;quot;name&amp;quot;:&amp;quot;OrderSummary&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><div class="sticky top-24" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="62" data-source-line-end="131"><div class="rounded-lg border bg-card text-card-foreground shadow-sm card-minimal border-border" data-source-file="src/components/ui/card/Card.vue" data-source-line-start="11" data-source-line-end="20"><!--[--><div class="flex flex-col gap-y-1.5 p-6" data-source-file="src/components/ui/card/CardHeader.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><h3 class="text-lg font-light tracking-wide" data-source-file="src/components/ui/card/CardTitle.vue" data-source-line-start="11" data-source-line-end="17"><!--[--> 订单摘要 <!--]--></h3><!--]--></div><div class="p-6 pt-0 space-y-4" data-source-file="src/components/ui/card/CardContent.vue" data-source-line-start="11" data-source-line-end="13"><!--[--><div class="space-y-4 max-h-96 overflow-y-auto" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="71" data-source-line-end="97"><!--[--><div class="flex gap-3 pb-4 border-b border-border last:border-b-0 last:pb-0" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="72" data-source-line-end="96"><img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/9294e4c8-d575-4ba9-b2e8-964e2862c83f.png" alt="羊绒围巾 - 冷白" class="w-16 h-16 object-cover bg-muted rounded-sm flex-shrink-0" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="77" data-source-line-end="81"><div class="flex-1 min-w-0" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="82" data-source-line-end="95"><h4 class="text-sm font-light text-foreground tracking-wide truncate" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="83" data-source-line-end="85">羊绒围巾 - 冷白</h4><p class="text-xs text-muted-foreground tracking-wide mt-1" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="86" data-source-line-end="88">冷白 / 180x70cm</p><div class="flex items-center justify-between mt-2" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="89" data-source-line-end="94"><span class="text-xs text-muted-foreground" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="90" data-source-line-end="90">x1</span><span class="text-sm font-light text-foreground" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="91" data-source-line-end="93"> ¥1,280</span></div></div></div><div class="flex gap-3 pb-4 border-b border-border last:border-b-0 last:pb-0" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="72" data-source-line-end="96"><img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/382d7a3c-9782-41aa-9739-fcc6fcef1d7f.png" alt="桑蚕丝巾 - 浅灰" class="w-16 h-16 object-cover bg-muted rounded-sm flex-shrink-0" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="77" data-source-line-end="81"><div class="flex-1 min-w-0" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="82" data-source-line-end="95"><h4 class="text-sm font-light text-foreground tracking-wide truncate" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="83" data-source-line-end="85">桑蚕丝巾 - 浅灰</h4><p class="text-xs text-muted-foreground tracking-wide mt-1" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="86" data-source-line-end="88">浅灰 / 90x90cm</p><div class="flex items-center justify-between mt-2" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="89" data-source-line-end="94"><span class="text-xs text-muted-foreground" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="90" data-source-line-end="90">x1</span><span class="text-sm font-light text-foreground" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="91" data-source-line-end="93"> ¥680</span></div></div></div><!--]--></div><div data-orientation="horizontal" role="none" class="shrink-0 h-px w-full bg-border" data-source-file="src/components/ui/separator/Separator.vue" data-source-line-start="19" data-source-line-end="28"><!--[--><!--]--></div><div class="space-y-2 text-sm" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="102" data-source-line-end="111"><div class="flex justify-between text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="103" data-source-line-end="106"><span data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="104" data-source-line-end="104">小计</span><span data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="105" data-source-line-end="105">¥1,960</span></div><div class="flex justify-between text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="107" data-source-line-end="110"><span data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="108" data-source-line-end="108">运费</span><span data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="109" data-source-line-end="109">免费</span></div></div><div data-orientation="horizontal" role="none" class="shrink-0 h-px w-full bg-border" data-source-file="src/components/ui/separator/Separator.vue" data-source-line-start="19" data-source-line-end="28"><!--[--><!--]--></div><div class="flex justify-between items-baseline" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="116" data-source-line-end="121"><span class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="117" data-source-line-end="117">总计</span><span class="text-2xl font-light text-foreground tracking-wide" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="118" data-source-line-end="120">¥1,960</span></div><div class="p-3 bg-muted/30 border border-border rounded-sm text-xs text-muted-foreground tracking-wide space-y-1" data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="124" data-source-line-end="128"><p data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="125" data-source-line-end="125">✓ 100% 羊绒品质保证</p><p data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="126" data-source-line-end="126">✓ 全国顺丰包邮</p><p data-source-file="src/components/checkout-center/OrderSummary.vue" data-source-line-start="127" data-source-line-end="127">✓ 7 天无理由退换</p></div><!--]--></div><!--]--></div></div><!--astro:end--></astro-island>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <astro-island uid="toc2v" prefix="s3" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CommonFooter.VCWrZTIH.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{&amp;quot;variant&amp;quot;:[0,&amp;quot;minimal&amp;quot;]}" ssr="" client="load" opts="{&amp;quot;name&amp;quot;:&amp;quot;CommonFooter&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><footer class="bg-background border-t border-border mt-auto" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="41" data-source-line-end="145"><div class="container-custom py-8" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="128" data-source-line-end="144"><div class="flex flex-col md:flex-row justify-between items-center gap-4" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="129" data-source-line-end="143"><p class="text-sm text-muted-foreground tracking-wide" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="130" data-source-line-end="132"> © 2024 MartilanGlan </p><div class="flex gap-6" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="133" data-source-line-end="142"><!--[--><a href="./placeholder.html" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="134" data-source-line-end="141">隐私政策</a><a href="./placeholder.html" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="134" data-source-line-end="141">服务条款</a><!--]--></div></div></div></footer><!--astro:end--></astro-island>
+
+  <script>
+    const originalBack = window.history.back
+    const originalForward = window.history.forward
+    const originalGo = window.history.go
+    function isValidNavigation(){
+      if(!window.parent.history.state.back || !window.parent.history.state.back.startsWith(&#39;/designPage&#39;)){
+        return false
+      }
+      return true
+    }
+    window.history.back = function(...args) {
+      if(!isValidNavigation()){
+        return
+      }
+      return originalBack.apply(this, args);
+    };
+
+    window.history.forward = function(...args) {
+      if(!isValidNavigation()){
+        return
+      }
+      return originalForward.apply(this, args);
+    };
+
+    window.history.go = function(...args) {
+      if(!isValidNavigation()){
+        return
+      }
+      return originalGo.apply(this, args);
+    };
+  </script></body></html>'></iframe>
+                    </div>
+                  </div>
+
+                </body>
+                </html>
+            

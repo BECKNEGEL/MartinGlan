@@ -1,0 +1,736 @@
+
+                <!DOCTYPE html>
+                <html lang="zh">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <meta name="color-scheme" content="light">
+                  <meta name="supported-color-schemes" content="light">
+                  <title>首页</title>
+                  <style>
+                    *,
+                    *::before,
+                    *::after {
+                      box-sizing: border-box;
+                      margin: 0;
+                    }
+                    .iframe-outer {
+                      position: fixed;
+                      top: 0;
+                      left: 0;
+                      bottom: 0;
+                      right: 0;
+                      display: flex;
+                      justify-content: center;
+                      background-color: #E0E0E0;
+                    }
+                    .iframe-wrapper {
+                      width: 100%;
+                      height: 100%;
+                      margin: 0 auto;
+                      transform-origin: center top;
+                      flex-shrink: 0;
+                    }
+                    #dynamicIframe {
+                      border: none;
+                      width: 100%;
+                      height: 100%;
+                    }
+                  </style>
+                  <script>
+                const width = 1920
+                const height = 1080
+                const resolutionRatio = width && height ? width / height : 1
+                const pageNameMap = {
+                  'home': '首页',
+    'collection_list': '系列分类页',
+    'product_detail': '商品详情页',
+    'material_craft_story': '材质与工艺专题页',
+    'search_results': '视觉搜索结果页',
+    'care_guide': '材质护理指南',
+    'shopping_bag': '购物袋',
+    'checkout_center': '结算中心',
+    'order_status': '订单确认与成功',
+    'account_dashboard': '个人中心',
+    'page_2516404': '管理员页面'
+                }
+                const allPageIds = ["home","collection_list","product_detail","material_craft_story","search_results","care_guide","shopping_bag","checkout_center","order_status","account_dashboard","page_2516404"]
+                const allFormatPageIdsMap = {"home":"home","collection_list":"collection-list","product_detail":"product-detail","material_craft_story":"material-craft-story","search_results":"search-results","care_guide":"care-guide","shopping_bag":"shopping-bag","checkout_center":"checkout-center","order_status":"order-status","account_dashboard":"account-dashboard","page_2516404":"page-2516404"}
+                const IFRAME_MESSAGE_TYPE = {
+                  iframeNavigation: 'iframeNavigation',
+                }
+                const safeAddEventListener = function Tc(e,t,r,n=!1){e.removeEventListener(t,r,n),e.addEventListener(t,r,n)}
+                const processOnclick = (e,t,r)=>{if(r){const n=Rw(t);if(n.methodName&&Lp(n.methodName,r))return;e.preventDefault(),e.stopPropagation();const s=n.args||[],i=(s==null?void 0:s.find(u=>u))||"";i&&Mp(i)}}
+                const checkIframeMethod = (e,t)=>{try{return typeof t[e]=="function"||typeof t[e]=="function"}catch(r){return!1}}
+                const postIframeMessage = (targetPageId) => {
+                  window.parent.postMessage({
+                    type: IFRAME_MESSAGE_TYPE.iframeNavigation,
+                    targetPageId,
+                  })
+                }
+                const handleIframeLinkClick = (event) => {
+                  const dynamicIframe = document.querySelector('#dynamicIframe')
+                  if (!dynamicIframe?.contentWindow) {
+                    return
+                  }
+                  const link = event.target.closest('a')
+                  const target = event.target
+                  if (link) {
+                    const href = link.getAttribute('href')
+                    const onclick = link.getAttribute('onclick')
+                    if (href && href !== '#' && !href.startsWith('javascript:')) {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      const targetPageId = getKeyByValueObj(allFormatPageIdsMap, href)
+                      if (targetPageId) {
+                        postIframeMessage(targetPageId)
+                      }
+                      return
+                    }
+                    if (onclick) {
+                      processOnclick(event, onclick, iframe.contentWindow, allFormatPageIdsMap)
+                    } else {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }
+                    return
+                  }
+                  const onclick = target.getAttribute('onclick')
+                  if (onclick) {
+                    processOnclick(event, onclick, iframe.contentWindow, allFormatPageIdsMap)
+                  }
+                }
+                function stringExt(link) {
+                  let s = String(link || '')
+                  s = (s.split('#')[0] || '')
+                  s = (s.split('?')[0] || '')
+                  s = s.trim()
+                  s = s.split('/').filter(Boolean).pop() || ''
+                  const lower = s.toLowerCase()
+                  if (lower.endsWith('.html') || lower.endsWith('.php') || lower.endsWith('.aspx')) {
+                    s = s.slice(0, s.lastIndexOf('.'))
+                  }
+                  return s
+                }
+                function formatHref(href) {
+                  if (!href) {
+                    return ''
+                  }
+                  try {
+                    const url = new URL(href, window.location.href)
+                    const pathname = url.pathname || ''
+                    return stringExt(pathname)
+                  } catch {
+                    return stringExt(href)
+                  }
+                }
+                function getKeyByValueObj(obj, value) {
+                  const newValue = formatHref(value)
+                  const keyFind = Object.keys(obj).find(k => k === newValue)
+                  if (keyFind) {
+                    return keyFind
+                  }
+                  return Object.keys(obj).find(k => obj[k] === newValue)
+                }
+                function setIframeSize(w, h) {
+                  const currentContainerRadio = w / h
+                  let widthValue = w
+                  let heightValue = h
+                  let zoom = 1
+                  if (currentContainerRadio > resolutionRatio) {
+                    widthValue = h * resolutionRatio
+                    heightValue = h
+                  } else {
+                    widthValue = w
+                    heightValue = w / resolutionRatio
+                  }
+                  zoom = width ? widthValue / width : 1
+                  return {
+                    width: widthValue / zoom + 'px',
+                    height: heightValue / zoom + 'px',
+                    zoom,
+                  }
+                }
+                function adjustIframeSize() {
+                  const iframeWrapper = document.querySelector(".iframe-wrapper")
+                  const { width, height, zoom } = setIframeSize(window.innerWidth, window.innerHeight)
+                  iframeWrapper.style.height = height
+                  iframeWrapper.style.width = width
+                  iframeWrapper.style.transform = 'scale(' + zoom + ')'
+                }
+                function sanitizeFilename(name) {
+                  return name.replace(/[\/:*?"<>|]/g, '_')
+                }
+                function handlePostMessage(event) {
+                  if (!event.data) {
+                    return
+                  }
+                  const { type, targetPageId } = event.data
+                  const targetPageName = pageNameMap[targetPageId]
+                  if (type === "iframeNavigation" && targetPageId && targetPageName) {
+                    window.location.href = targetPageName + '.html'
+                  }
+                }
+                function setupIframeEvents() {
+                  const iframe = document.getElementById('dynamicIframe')
+                  if (iframe && iframe.contentWindow && iframe.contentWindow.document) {
+                    safeAddEventListener(iframe.contentWindow.document, 'click', handleIframeLinkClick, true)
+                  } else {
+                    setTimeout(setupIframeEvents, 100)
+                  }
+                }
+                window.addEventListener('message', handlePostMessage)
+                window.onload = function() {
+                  adjustIframeSize()
+                  setupIframeEvents()
+                }
+                window.onresize = adjustIframeSize
+                window.onunload = () => {
+                  window.removeEventListener('message', handlePostMessage)
+                }
+              </script>
+                </head>
+                <body>
+                  <div class="iframe-outer">
+                    <div class="iframe-wrapper">
+                      <iframe id="dynamicIframe" srcdoc='<html data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="11" data-source-line-end="21" lang="en"><head data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="12" data-source-line-end="17"><script>(function(){
+      function stringExt(link) {
+        let s = String(link || &#39;&#39;)
+        s = (s.split(&#39;#&#39;)[0] || &#39;&#39;)
+        s = (s.split(&#39;?&#39;)[0] || &#39;&#39;)
+        s = s.trim()
+        s = s.split(&#39;/&#39;).filter(Boolean).pop() || &#39;&#39;
+        const lower = s.toLowerCase()
+        if (lower.endsWith(&#39;.html&#39;) || lower.endsWith(&#39;.php&#39;) || lower.endsWith(&#39;.aspx&#39;)) {
+          s = s.slice(0, s.lastIndexOf(&#39;.&#39;))
+        }
+        return s
+      }
+      function formatHref(href) {
+        if (!href) {
+          return &#39;&#39;
+        }
+        try {
+          const url = new URL(href, window.location.href)
+          const pathname = url.pathname || &#39;&#39;
+          return stringExt(pathname)
+        } catch {
+          return stringExt(href)
+        }
+      }
+      function getKeyByValueObj(obj, value) {
+        const newValue = formatHref(value)
+        const keyFind = Object.keys(obj).find(k => k === newValue)
+        if (keyFind) {
+          return keyFind
+        }
+        return Object.keys(obj).find(k => obj[k] === newValue)
+      }
+      function emit(to, source){
+        try {
+          if (window.parent) {
+            const allFormatPageIdsMap = {"home":"home","collection_list":"collection-list","product_detail":"product-detail","material_craft_story":"material-craft-story","search_results":"search-results","care_guide":"care-guide","shopping_bag":"shopping-bag","checkout_center":"checkout-center","order_status":"order-status","account_dashboard":"account-dashboard","page_2516404":"page-2516404"}
+            const IFRAME_MESSAGE_TYPE = {
+              iframeNavigation: &#39;iframeNavigation&#39;,
+            }
+            const targetPageId = getKeyByValueObj(allFormatPageIdsMap, String(to || &#39;&#39;))
+            if (targetPageId) {
+              window.parent.postMessage({
+                type: IFRAME_MESSAGE_TYPE.iframeNavigation,
+                targetPageId,
+              }, &#39;*&#39;)
+            }
+          }
+        } catch(e) {}
+      }
+      try{
+        if (&#39;navigation&#39; in window &amp;&amp; window.navigation &amp;&amp; typeof window.navigation.addEventListener===&#39;function&#39;){
+          window.navigation.addEventListener(&#39;navigate&#39;, function(e){
+            try{
+              var url = (e.destination &amp;&amp; e.destination.url) || &#39;&#39;;
+              if (e.canIntercept &amp;&amp; typeof e.intercept===&#39;function&#39;){ e.intercept({ handler:function(){} }) }
+              else if (e.preventDefault){ e.preventDefault() }
+              emit(url)
+            }catch(_){}
+          })
+        }
+      }catch(_){}
+    })();</script><meta name="supported-color-schemes" content="light"><meta name="color-scheme" content="light"><style>
+      :root, html, body { color-scheme: light; }
+      html { forced-color-adjust: none; }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Built with Astro">
+    <title data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="16" data-source-line-end="16">
+      马丁格兰 - 高端羊绒围巾品牌官网
+    </title>
+    <link rel="stylesheet" href="./assets/html/100156/account-dashboard.DC4RfHBD.css">
+    <style>
+      @keyframes bounce-2101aedf{0%,to{transform:translate(-50%) translateY(0)}50%{transform:translate(-50%) translateY(-8px)}}.animate-bounce[data-v-2101aedf]{animation:bounce-2101aedf 2s infinite}@keyframes fadeIn-f76d2a84{0%{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}.animate-fade-in[data-v-f76d2a84]{animation:fadeIn-f76d2a84 .3s ease-out}
+    </style>
+  <script src="./assets/static/uxbot/25_6/holder.js"></script><style>
+#ib3me,
+#ie6lf,
+#iccvu2,
+#i594g6,
+#iz2j4k,
+#ioel7l,
+#iu75ap,
+#ivhman {
+  opacity: 1;
+}
+
+#icnwv {
+  background-color: rgb(209, 213, 219);
+}
+
+#ixgu9 {
+  background-color: rgb(249, 250, 251);
+}
+
+#ivx1wa {
+  background-color: rgb(229, 231, 235);
+}
+
+#ii7ca {
+  border-color: rgb(0, 0, 0);
+  color: rgb(184, 193, 197);
+  flex-flow: row;
+  font-family: Verdana, Geneva, sans-serif;
+  font-weight: 200;
+  text-decoration: none;
+}
+
+#idbhs {
+  color: rgb(188, 188, 188);
+  flex-flow: row;
+}
+
+#i33n3 {
+  flex-flow: column;
+}
+
+</style></head>
+  <body data-source-file="src/layouts/BaseLayout.astro" data-source-line-start="18" data-source-line-end="20">
+    <astro-island uid="2k2GCS" prefix="s0" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CommonHeader.0QFRs7u9.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{&amp;quot;showAnnouncement&amp;quot;:[0,false]}" ssr="" client="load" opts="{&amp;quot;name&amp;quot;:&amp;quot;CommonHeader&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><header data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="36" data-source-line-end="171" class="sticky top-0 z-50 w-full">
+        <!---->
+        <div data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="39" data-source-line-end="170" class="border-b border-border transition-subtle bg-background">
+          <div data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="45" data-source-line-end="169" class="container-custom py-4">
+            <div data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="46" data-source-line-end="168" class="relative flex items-center justify-between gap-4">
+              <nav data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="48" data-source-line-end="57" class="hidden md:flex items-center gap-6 flex-1">
+                <!--[--><a href="./collection-list.html" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="49" data-source-line-end="56" class="text-sm text-foreground hover:opacity-70 transition-opacity tracking-wide">围巾系列</a><a href="./material-craft-story.html" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="49" data-source-line-end="56" class="text-sm text-foreground hover:opacity-70 transition-opacity tracking-wide">材质工艺</a><!--]-->
+              </nav>
+              <a href="./home.html" data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="60" data-source-line-end="67" class="absolute left-1/2 -translate-x-1/2 flex items-stretch justify-center w-[200px] z-10"><h1 data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="64" data-source-line-end="66" class="text-2xl font-light tracking-loose text-foreground">
+                  MartilanGlan
+                </h1></a>
+              <div data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="70" data-source-line-end="106" class="hidden md:flex items-center gap-4 flex-1 justify-end">
+                <div data-source-file="src/components/common/CommonHeader.vue" data-source-line-start="71" data-source-line-end="87" class="relative max-w-xs">
+                  <input type="search" placeholder="搜索产品" data-source-file="src/components/ui/input/Input.vue" data-source-line-start="23" data-source-line-end="23" value="" class="flex h-10 w-full rounded-md border px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-foreground file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10 bg-background border-border text-sm tracking-wide"><button data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground w-10 absolute right-0 top-0 h-full">
+                    <!--[--><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-search-icon lucide-search">
+                      <path d="m21 21-4.34-4.34"></path>
+                      <circle cx="11" cy="11" r="8"></circle></svg><!--]-->
+                  </button>
+                </div>
+                <a href="./account-dashboard.html" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-user-icon lucide-user">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle></svg><!--]--></a><a href="./shopping-bag.html" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10"><!--[--><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-shopping-bag-icon lucide-shopping-bag">
+                    <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    <path d="M3.103 6.034h17.794"></path>
+                    <path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"></path></svg><!--]--></a>
+              </div>
+              <!--[--><!--[--><button type="button" aria-haspopup="dialog" aria-expanded="false" data-state="closed" data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10 md:hidden">
+                <!--[--><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-menu-icon lucide-menu">
+                  <path d="M4 5h16"></path>
+                  <path d="M4 12h16"></path>
+                  <path d="M4 19h16"></path></svg><!--]--></button><!--v-if--><!--]--><!--]-->
+            </div>
+          </div>
+        </div>
+      </header>
+      <!--astro:end--></astro-island>
+    <main data-source-file="src/pages/home.astro" data-source-line-start="17" data-source-line-end="35" class="flex flex-col min-h-screen">
+      <!-- Hero Banner --><astro-island uid="19O3as" prefix="s1" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/HeroBanner.BwNV0q7p.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="idle" opts="{&amp;quot;name&amp;quot;:&amp;quot;HeroBanner&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><section data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="19" data-source-line-end="70" data-v-2101aedf="" class="relative w-full overflow-hidden">
+          <div data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="21" data-source-line-end="31" data-v-2101aedf="" class="relative aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted">
+            <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/69f07dad-4ab8-40f2-b96a-d441d5df577b.png" alt="织物之境：二十六微米之境" class="w-full h-full object-cover transition-opacity duration-1000" style="opacity:1;" data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="22" data-source-line-end="27" data-v-2101aedf="" id="ib3me">
+            <div data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="30" data-source-line-end="30" data-v-2101aedf="" class="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent"></div>
+          </div>
+          <div data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="34" data-source-line-end="49" data-v-2101aedf="" id="i33n3" class="absolute inset-0 flex flex-col items-center justify-center px-4">
+            <div data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="35" data-source-line-end="48" data-v-2101aedf="" class="text-center max-w-2xl">
+              <h1 data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="36" data-source-line-end="38" data-v-2101aedf="" id="ii7ca" class="text-4xl md:text-6xl font-light text-foreground mb-4 tracking-loose">
+                织物二十六微米之境
+              </h1>
+              <p data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="39" data-source-line-end="41" data-v-2101aedf="" class="text-lg md:text-xl text-muted-foreground mb-8 tracking-wide" id="idbhs">
+                马丁格兰 2026/27 冬季高端系列
+              </p>
+              <a href="./collection-list.html" data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="42" data-source-line-end="47" data-v-2101aedf="" class="inline-block px-8 py-3 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all duration-300 tracking-wide text-sm">
+                查看系列
+              </a>
+            </div>
+          </div>
+          <div data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="52" data-source-line-end="69" data-v-2101aedf="" class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="56" data-source-line-end="68" data-v-2101aedf="" class="w-6 h-6 text-foreground/50">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" data-source-file="src/components/home/HeroBanner.vue" data-source-line-start="62" data-source-line-end="67" data-v-2101aedf=""></path>
+            </svg>
+          </div>
+        </section>
+        <!--astro:end--></astro-island><!-- New Product Gallery --><astro-island uid="28ci2e" prefix="s2" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/NewProductGallery.xicX1LXn.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="idle" opts="{&amp;quot;name&amp;quot;:&amp;quot;NewProductGallery&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><section data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="20" data-source-line-end="90" class="section-spacing bg-background">
+          <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="21" data-source-line-end="89" class="container-custom">
+            <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="23" data-source-line-end="30" class="mb-12">
+              <h2 data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="24" data-source-line-end="26" class="text-3xl md:text-4xl font-light text-foreground mb-4 tracking-loose">
+                当季新品
+              </h2>
+              <p data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="27" data-source-line-end="29" class="text-muted-foreground tracking-wide max-w-2xl">
+                精选本季最新的羊绒围巾与丝巾系列，每一件都承载着对纯粹材质的执着
+              </p>
+            </div>
+            <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="33" data-source-line-end="78" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <!--[--><a href="./product-detail.html?id=p1" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="34" data-source-line-end="77" class="group block" id="ie6lf" style="opacity:1;"><div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="41" data-source-line-end="76" class="card-minimal overflow-hidden transition-subtle">
+                  <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="43" data-source-line-end="49" class="relative overflow-hidden bg-muted aspect-[3/4]">
+                    <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/4e63efaa-b32b-44ba-892c-002cb052c0e8.png" alt="「月色」极重磅山羊绒长围巾" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="44" data-source-line-end="48">
+                  </div>
+                  <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="52" data-source-line-end="75" class="p-4 flex flex-col gap-2">
+                    <h3 data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="53" data-source-line-end="55" class="text-sm font-light text-foreground tracking-wide line-clamp-2">
+                      「月色」极重磅山羊绒长围巾
+                    </h3>
+                    <p data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="57" data-source-line-end="59" class="text-xs text-muted-foreground tracking-wide">
+                      100% 极细山羊绒
+                    </p>
+                    <p data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="61" data-source-line-end="63" class="text-base font-light text-foreground tracking-wide mt-2">
+                      ¥4,980
+                    </p>
+                    <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="66" data-source-line-end="74" class="flex items-center gap-2 mt-2">
+                      <!--[-->
+                      <div title="冷雾灰" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="67" data-source-line-end="73" class="w-3 h-3 rounded-full border border-border" id="icnwv" style="background-color:#D1D5DB;"></div>
+                      <div title="冰川白" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="67" data-source-line-end="73" class="w-3 h-3 rounded-full border border-border" id="ixgu9" style="background-color:#F9FAFB;"></div>
+                      <!--]-->
+                    </div>
+                  </div>
+                </div></a><a href="./product-detail.html?id=p2" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="34" data-source-line-end="77" class="group block" id="iccvu2" style="opacity:1;"><div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="41" data-source-line-end="76" class="card-minimal overflow-hidden transition-subtle">
+                  <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="43" data-source-line-end="49" class="relative overflow-hidden bg-muted aspect-[3/4]">
+                    <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/ecbe67b6-4322-457a-af5b-60663faab48e.png" alt="「流光」桑蚕丝大方巾" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="44" data-source-line-end="48">
+                  </div>
+                  <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="52" data-source-line-end="75" class="p-4 flex flex-col gap-2">
+                    <h3 data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="53" data-source-line-end="55" class="text-sm font-light text-foreground tracking-wide line-clamp-2">
+                      「流光」桑蚕丝大方巾
+                    </h3>
+                    <p data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="57" data-source-line-end="59" class="text-xs text-muted-foreground tracking-wide">
+                      100% 桑蚕丝
+                    </p>
+                    <p data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="61" data-source-line-end="63" class="text-base font-light text-foreground tracking-wide mt-2">
+                      ¥2,680
+                    </p>
+                    <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="66" data-source-line-end="74" class="flex items-center gap-2 mt-2">
+                      <!--[-->
+                      <div title="极光银" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="67" data-source-line-end="73" class="w-3 h-3 rounded-full border border-border" id="ivx1wa" style="background-color:#E5E7EB;"></div>
+                      <!--]-->
+                    </div>
+                  </div>
+                </div></a><!--]-->
+            </div>
+            <div data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="81" data-source-line-end="88" class="mt-12 text-center">
+              <a href="./collection-list.html" data-source-file="src/components/home/NewProductGallery.vue" data-source-line-start="82" data-source-line-end="87" class="inline-block text-sm text-foreground hover:opacity-70 transition-opacity tracking-wide border-b border-foreground pb-1">
+                查看全部新品 →
+              </a>
+            </div>
+          </div>
+        </section>
+        <!--astro:end--></astro-island><!-- Collection Categories --><astro-island uid="Z1FhJPv" prefix="s3" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CollectionCategories.C93PARb3.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="idle" opts="{&amp;quot;name&amp;quot;:&amp;quot;CollectionCategories&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><section data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="18" data-source-line-end="65" class="section-spacing bg-secondary/30">
+          <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="19" data-source-line-end="64" class="container-custom">
+            <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="21" data-source-line-end="28" class="mb-12">
+              <h2 data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="22" data-source-line-end="24" class="text-3xl md:text-4xl font-light text-foreground mb-4 tracking-loose">
+                系列分类
+              </h2>
+              <p data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="25" data-source-line-end="27" class="text-muted-foreground tracking-wide max-w-2xl">
+                探索我们精心打造的各个系列，每个系列都代表着不同的设计理念与工艺传承
+              </p>
+            </div>
+            <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="31" data-source-line-end="63" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <!--[--><a href="./collection-list.html?type=cashmere" data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="32" data-source-line-end="62" class="group block" id="i594g6" style="opacity:1;"><div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="39" data-source-line-end="61" class="card-minimal overflow-hidden transition-subtle">
+                  <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="41" data-source-line-end="50" class="relative overflow-hidden bg-muted aspect-[3/4]">
+                    <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/187add63-e63c-4f2a-ab39-4bdacb2817a0.png" alt="100% 山羊绒系列" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="42" data-source-line-end="46">
+                    <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="49" data-source-line-end="49" class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
+                  </div>
+                  <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="53" data-source-line-end="60" class="p-6">
+                    <h3 data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="54" data-source-line-end="56" class="text-xl font-light text-foreground tracking-wide">
+                      100% 山羊绒系列
+                    </h3>
+                    <p data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="57" data-source-line-end="59" class="text-sm text-muted-foreground mt-2 tracking-wide">
+                      浏览系列 →
+                    </p>
+                  </div>
+                </div></a><a href="./collection-list.html?type=silk" data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="32" data-source-line-end="62" class="group block" id="iz2j4k" style="opacity:1;"><div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="39" data-source-line-end="61" class="card-minimal overflow-hidden transition-subtle">
+                  <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="41" data-source-line-end="50" class="relative overflow-hidden bg-muted aspect-[3/4]">
+                    <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/029b7db3-2dab-48e5-a47c-101e0d68a81b.png" alt="桑蚕丝印花系列" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="42" data-source-line-end="46">
+                    <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="49" data-source-line-end="49" class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
+                  </div>
+                  <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="53" data-source-line-end="60" class="p-6">
+                    <h3 data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="54" data-source-line-end="56" class="text-xl font-light text-foreground tracking-wide">
+                      桑蚕丝印花系列
+                    </h3>
+                    <p data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="57" data-source-line-end="59" class="text-sm text-muted-foreground mt-2 tracking-wide">
+                      浏览系列 →
+                    </p>
+                  </div>
+                </div></a><a href="./collection-list.html?type=artist" data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="32" data-source-line-end="62" class="group block" id="ioel7l" style="opacity:1;"><div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="39" data-source-line-end="61" class="card-minimal overflow-hidden transition-subtle">
+                  <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="41" data-source-line-end="50" class="relative overflow-hidden bg-muted aspect-[3/4]">
+                    <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/cfbc2afc-8a66-4e1e-b3e8-3c2afb3f61f3.png" alt="艺术家合作款" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="42" data-source-line-end="46">
+                    <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="49" data-source-line-end="49" class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
+                  </div>
+                  <div data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="53" data-source-line-end="60" class="p-6">
+                    <h3 data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="54" data-source-line-end="56" class="text-xl font-light text-foreground tracking-wide">
+                      艺术家合作款
+                    </h3>
+                    <p data-source-file="src/components/home/CollectionCategories.vue" data-source-line-start="57" data-source-line-end="59" class="text-sm text-muted-foreground mt-2 tracking-wide">
+                      浏览系列 →
+                    </p>
+                  </div>
+                </div></a><!--]-->
+            </div>
+          </div>
+        </section>
+        <!--astro:end--></astro-island><!-- Craft Teaser --><astro-island uid="Z3uXwb" prefix="s4" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CraftTeaser.C1HaUIKQ.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="idle" opts="{&amp;quot;name&amp;quot;:&amp;quot;CraftTeaser&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><section data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="18" data-source-line-end="84" class="section-spacing bg-background">
+          <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="19" data-source-line-end="83" class="container-custom">
+            <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="20" data-source-line-end="82" class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="22" data-source-line-end="31" class="relative overflow-hidden bg-muted aspect-[4/5]" id="iu75ap" style="opacity:1;">
+                <img src="https://spark-builder.s3.cn-north-1.amazonaws.com.cn/image/2026/2/27/40218357-5238-4a27-a132-6daa018f598d.png" alt="工艺细节" class="w-full h-full object-cover" data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="26" data-source-line-end="30">
+              </div>
+              <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="34" data-source-line-end="81" class="flex flex-col gap-6">
+                <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="35" data-source-line-end="42">
+                  <h2 data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="36" data-source-line-end="38" class="text-3xl md:text-4xl font-light text-foreground mb-4 tracking-loose">
+                    纯境工艺：从原纤到织物
+                  </h2>
+                  <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="39" data-source-line-end="41" class="text-base text-muted-foreground leading-relaxed tracking-wide">
+                    我们坚持在阿尔卑斯山脉采集极寒之地的绒毛。每一条围巾都经过12道严苛工序，保留纤维原始的柔韧与冷感触觉。
+                  </p>
+                </div>
+                <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="45" data-source-line-end="52">
+                  <a href="./material-craft-story.html" data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="46" data-source-line-end="51" class="inline-block px-8 py-3 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all duration-300 tracking-wide text-sm">探索工艺</a>
+                </div>
+                <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="55" data-source-line-end="80" class="pt-6 border-t border-border space-y-4">
+                  <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="56" data-source-line-end="63">
+                    <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="57" data-source-line-end="59" class="text-xs text-muted-foreground tracking-wide uppercase mb-1">
+                      纤维细度
+                    </p>
+                    <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="60" data-source-line-end="62" class="text-sm text-foreground tracking-wide">
+                      ≤ 14.5 微米
+                    </p>
+                  </div>
+                  <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="64" data-source-line-end="71">
+                    <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="65" data-source-line-end="67" class="text-xs text-muted-foreground tracking-wide uppercase mb-1">
+                      工序数量
+                    </p>
+                    <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="68" data-source-line-end="70" class="text-sm text-foreground tracking-wide">
+                      12 道严苛工序
+                    </p>
+                  </div>
+                  <div data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="72" data-source-line-end="79">
+                    <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="73" data-source-line-end="75" class="text-xs text-muted-foreground tracking-wide uppercase mb-1">
+                      原料来源
+                    </p>
+                    <p data-source-file="src/components/home/CraftTeaser.vue" data-source-line-start="76" data-source-line-end="78" class="text-sm text-foreground tracking-wide">
+                      阿尔卑斯山脉 4500m+ 高度
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!--astro:end--></astro-island><!-- Brand Narrative --><astro-island uid="ZpW2cW" prefix="s5" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/BrandNarrative.BYFxYWXQ.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="idle" opts="{&amp;quot;name&amp;quot;:&amp;quot;BrandNarrative&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><section data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="17" data-source-line-end="43" class="section-spacing bg-secondary/30">
+          <div data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="18" data-source-line-end="42" class="container-custom">
+            <div data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="19" data-source-line-end="41" class="max-w-3xl mx-auto text-center">
+              <h2 data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="20" data-source-line-end="22" class="text-3xl md:text-4xl font-light text-foreground mb-6 tracking-loose">
+                品牌理念
+              </h2>
+              <div data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="24" data-source-line-end="40" class="space-y-6 text-base md:text-lg text-muted-foreground leading-relaxed tracking-wide">
+                <p data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="25" data-source-line-end="27">
+                  马丁格兰诞生于对极致材质的执着追求。我们相信，真正的奢侈不在于繁复的装饰，而在于对细节的克制与对品质的坚守。
+                </p>
+                <p data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="29" data-source-line-end="31">
+                  每一条围巾都是一次对纯粹的致敬。从阿尔卑斯山脉的原纤采集，到瑞士工坊的精心编织，我们用12道严苛工序，将自然的馈赠转化为穿着者的第二层肌肤。
+                </p>
+                <p data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="33" data-source-line-end="35">
+                  在这个浮躁的时代，我们选择安静。选择让羊绒的垂坠感说话，让织纹的微距特写诉说工艺的故事，让冷白的美学传递品牌的气质。
+                </p>
+                <p data-source-file="src/components/home/BrandNarrative.vue" data-source-line-start="37" data-source-line-end="39" class="text-sm text-muted-foreground/70 pt-4">
+                  马丁格兰 MartinGlan — 静谧、克制、纯粹
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!--astro:end--></astro-island><!-- Newsletter Subscribe --><astro-island uid="hgczX" prefix="s6" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/NewsletterSubscribe.Bto7lUfw.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{}" ssr="" client="idle" opts="{&amp;quot;name&amp;quot;:&amp;quot;NewsletterSubscribe&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><section data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="33" data-source-line-end="85" data-v-f76d2a84="" class="section-spacing bg-background">
+          <div data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="34" data-source-line-end="84" data-v-f76d2a84="" class="container-custom">
+            <div data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="35" data-source-line-end="83" data-v-f76d2a84="" class="max-w-2xl mx-auto">
+              <div data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="36" data-source-line-end="43" data-v-f76d2a84="" class="text-center mb-8">
+                <h2 data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="37" data-source-line-end="39" data-v-f76d2a84="" class="text-3xl md:text-4xl font-light text-foreground mb-4 tracking-loose">
+                  订阅资讯
+                </h2>
+                <p data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="40" data-source-line-end="42" data-v-f76d2a84="" class="text-muted-foreground tracking-wide">
+                  获取最新系列发布、独家优惠与护理建议
+                </p>
+              </div>
+              <div data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="46" data-source-line-end="69" data-v-f76d2a84="" class="flex flex-col md:flex-row gap-3 transition-all duration-300" id="ivhman" style="opacity:1;">
+                <input type="email" placeholder="输入您的邮箱地址" data-source-file="src/components/ui/input/Input.vue" data-source-line-start="23" data-source-line-end="23" data-v-f76d2a84="" value="" class="flex h-10 w-full rounded-md border px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-foreground file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 flex-1 bg-background border-border text-sm tracking-wide"><button data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27" data-v-f76d2a84="" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-8 tracking-wide">
+                  <!--[--><span data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="63" data-source-line-end="63" data-v-f76d2a84="">订阅</span><!--]-->
+                </button>
+              </div>
+              <!---->
+              <p data-source-file="src/components/home/NewsletterSubscribe.vue" data-source-line-start="80" data-source-line-end="82" data-v-f76d2a84="" class="text-xs text-muted-foreground text-center mt-6 tracking-wide">
+                我们尊重您的隐私。您的邮箱地址仅用于发送品牌资讯，不会与第三方共享。
+              </p>
+            </div>
+          </div>
+        </section>
+        <!--astro:end--></astro-island>
+    </main>
+    <astro-island uid="2pSB2E" prefix="s7" component-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/CommonFooter.VCWrZTIH.js" component-export="default" renderer-url="https://uxbot-prod-public.s3.cn-north-1.amazonaws.com.cn/html/100156/client.Dm8LNi_D.js" props="{&amp;quot;variant&amp;quot;:[0,&amp;quot;full&amp;quot;]}" ssr="" client="load" opts="{&amp;quot;name&amp;quot;:&amp;quot;CommonFooter&amp;quot;,&amp;quot;value&amp;quot;:true}" await-children=""><footer data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="41" data-source-line-end="145" class="bg-background border-t border-border mt-auto">
+        <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="43" data-source-line-end="125" class="container-custom section-spacing">
+          <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="44" data-source-line-end="107" class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="46" data-source-line-end="52">
+              <h2 data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="47" data-source-line-end="47" class="text-xl font-light tracking-loose mb-4">
+                MartilanGlan
+              </h2>
+              <p data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="48" data-source-line-end="51" class="text-sm text-muted-foreground leading-relaxed tracking-wide">
+                专注于高端羊绒与丝巾设计，<br data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="49" data-source-line-end="49">
+                追求纯粹的材质与工艺
+              </p>
+            </div>
+            <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="55" data-source-line-end="67">
+              <h3 data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="56" data-source-line-end="56" class="text-sm font-medium mb-4 tracking-wide">
+                产品系列
+              </h3>
+              <ul data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="57" data-source-line-end="66" class="space-y-3">
+                <!--[-->
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="58" data-source-line-end="65">
+                  <a href="./collection-list.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="59" data-source-line-end="64" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">围巾系列</a>
+                </li>
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="58" data-source-line-end="65">
+                  <a href="./material-craft-story.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="59" data-source-line-end="64" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">材质工艺</a>
+                </li>
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="58" data-source-line-end="65">
+                  <a href="./care-guide.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="59" data-source-line-end="64" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">护理指南</a>
+                </li>
+                <!--]-->
+              </ul>
+            </div>
+            <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="70" data-source-line-end="82">
+              <h3 data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="71" data-source-line-end="71" class="text-sm font-medium mb-4 tracking-wide">
+                客户服务
+              </h3>
+              <ul data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="72" data-source-line-end="81" class="space-y-3">
+                <!--[-->
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="73" data-source-line-end="80">
+                  <a href="./placeholder.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="74" data-source-line-end="79" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">关于我们</a>
+                </li>
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="73" data-source-line-end="80">
+                  <a href="./placeholder.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="74" data-source-line-end="79" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">联系方式</a>
+                </li>
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="73" data-source-line-end="80">
+                  <a href="./placeholder.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="74" data-source-line-end="79" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">配送说明</a>
+                </li>
+                <li data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="73" data-source-line-end="80">
+                  <a href="./placeholder.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="74" data-source-line-end="79" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">退换政策</a>
+                </li>
+                <!--]-->
+              </ul>
+            </div>
+            <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="85" data-source-line-end="106">
+              <h3 data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="86" data-source-line-end="86" class="text-sm font-medium mb-4 tracking-wide">
+                订阅资讯
+              </h3>
+              <p data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="87" data-source-line-end="89" class="text-sm text-muted-foreground mb-4 tracking-wide">
+                获取最新系列与独家优惠
+              </p>
+              <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="90" data-source-line-end="105" class="flex gap-2">
+                <input type="email" placeholder="邮箱地址" data-source-file="src/components/ui/input/Input.vue" data-source-line-start="23" data-source-line-end="23" value="" class="flex h-10 w-full rounded-md border px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-foreground file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 flex-1 bg-background border-border text-sm tracking-wide"><button data-source-file="src/components/ui/button/Button.vue" data-source-line-start="21" data-source-line-end="27" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;amp;_svg]:pointer-events-none [&amp;amp;_svg]:size-4 [&amp;amp;_svg]:shrink-0 border border-input bg-transparent hover:bg-accent hover:text-accent-foreground h-10 w-10">
+                  <!--[--><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-source-file="src/components/common/SafeIcon.vue" data-source-line-start="43" data-source-line-end="49" class="lucide lucide-send-icon lucide-send">
+                    <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path>
+                    <path d="m21.854 2.147-10.94 10.939"></path></svg><!--]-->
+                </button>
+              </div>
+            </div>
+          </div>
+          <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="110" data-source-line-end="124" class="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
+            <p data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="111" data-source-line-end="113" class="text-sm text-muted-foreground tracking-wide">
+              © 2024 MartilanGlan. 保留所有权利
+            </p>
+            <div data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="114" data-source-line-end="123" class="flex gap-6">
+              <!--[--><a href="./placeholder.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="115" data-source-line-end="122" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">隐私政策</a><a href="./placeholder.html" data-source-file="src/components/common/CommonFooter.vue" data-source-line-start="115" data-source-line-end="122" class="text-sm text-muted-foreground hover:text-foreground transition-opacity tracking-wide">服务条款</a><!--]-->
+            </div>
+          </div>
+        </div>
+      </footer>
+      <!--astro:end--></astro-island>
+    <script>
+
+      const originalBack = window.history.back
+      const originalForward = window.history.forward
+      const originalGo = window.history.go
+      function isValidNavigation(){
+        if(!window.parent.history.state.back || !window.parent.history.state.back.startsWith(&#39;/designPage&#39;)){
+          return false
+        }
+        return true
+      }
+      window.history.back = function(...args) {
+        if(!isValidNavigation()){
+          return
+        }
+        return originalBack.apply(this, args);
+      };
+
+      window.history.forward = function(...args) {
+        if(!isValidNavigation()){
+          return
+        }
+        return originalForward.apply(this, args);
+      };
+
+      window.history.go = function(...args) {
+        if(!isValidNavigation()){
+          return
+        }
+        return originalGo.apply(this, args);
+      };
+    </script>
+  
+
+<script>
+    const originalBack = window.history.back
+    const originalForward = window.history.forward
+    const originalGo = window.history.go
+    function isValidNavigation(){
+      if(!window.parent.history.state.back || !window.parent.history.state.back.startsWith(&#39;/designPage&#39;)){
+        return false
+      }
+      return true
+    }
+    window.history.back = function(...args) {
+      if(!isValidNavigation()){
+        return
+      }
+      return originalBack.apply(this, args);
+    };
+
+    window.history.forward = function(...args) {
+      if(!isValidNavigation()){
+        return
+      }
+      return originalForward.apply(this, args);
+    };
+
+    window.history.go = function(...args) {
+      if(!isValidNavigation()){
+        return
+      }
+      return originalGo.apply(this, args);
+    };
+  </script></body></html>'></iframe>
+                    </div>
+                  </div>
+
+                </body>
+                </html>
+            
